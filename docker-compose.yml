@@ -1,0 +1,133 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-medi-vault}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-medi-vault}
+      POSTGRES_DB: ${POSTGRES_DB:-medi-vault}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-medi-vault}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  chromadb:
+    image: chromadb/chroma:latest
+    volumes:
+      - chroma_data:/chroma/chroma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - internal
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      ollama:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - internal
+      - proxy
+
+  celery_worker:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    entrypoint: celery -A app.worker worker --loglevel=info -Q default,sync
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    networks:
+      - internal
+
+  celery_beat:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    entrypoint: celery -A app.worker beat --loglevel=info
+    depends_on:
+      redis:
+        condition: service_started
+    env_file:
+      - .env
+    networks:
+      - internal
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    networks:
+      - proxy
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - proxy
+
+networks:
+  internal:
+    driver: bridge
+    internal: true
+  proxy:
+    driver: bridge
+
+volumes:
+  pgdata:
+  chroma_data:
+  redis_data:
+  ollama_models:

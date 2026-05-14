@@ -1,0 +1,32 @@
+# Development overrides — hot-reload and debug
+version: "3.8"
+
+services:
+  backend:
+    volumes:
+      - ./apps/backend:/app
+    environment:
+      - LOG_LEVEL=DEBUG
+      - RELOAD=true
+
+  frontend:
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+
+  celery_worker:
+    volumes:
+      - ./apps/backend:/app
+    environment:
+      - LOG_LEVEL=DEBUG
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
