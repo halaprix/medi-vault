@@ -1,0 +1,18 @@
+{
+  "conversions": [
+    {"from": "mg/dL", "to": "mmol/L", "loinc_code": "2093-3", "factor": 0.02586, "note": "Total Cholesterol"},
+    {"from": "mg/dL", "to": "mmol/L", "loinc_code": "2085-9", "factor": 0.02586, "note": "LDL Cholesterol"},
+    {"from": "mg/dL", "to": "mmol/L", "loinc_code": "2086-7", "factor": 0.02586, "note": "HDL Cholesterol"},
+    {"from": "mg/dL", "to": "mmol/L", "loinc_code": "2571-8", "factor": 0.01129, "note": "Triglycerides"},
+    {"from": "mg/dL", "to": "mmol/L", "loinc_code": "2345-7", "factor": 0.05551, "note": "Glucose"},
+    {"from": "mg/dL", "to": "umol/L", "loinc_code": "2160-0", "factor": 88.42, "note": "Creatinine"},
+    {"from": "ug/dL", "to": "umol/L", "loinc_code": "2498-4", "factor": 0.1791, "note": "Iron"},
+    {"from": "ug/dL", "to": "umol/L", "loinc_code": "2500-7", "factor": 0.1791, "note": "TIBC"},
+    {"from": "ng/mL", "to": "nmol/L", "loinc_code": "1986-9", "factor": 2.496, "note": "Vitamin D"},
+    {"from": "pg/mL", "to": "pmol/L", "loinc_code": "2132-9", "factor": 0.7378, "note": "Vitamin B12"},
+    {"from": "ng/mL", "to": "nmol/L", "loinc_code": "2284-8", "factor": 2.266, "note": "Folate"},
+    {"from": "ng/dL", "to": "nmol/L", "loinc_code": "2986-8", "factor": 0.03467, "note": "Testosterone"},
+    {"from": "pg/mL", "to": "pmol/L", "loinc_code": "2243-4", "factor": 3.671, "note": "Estradiol"},
+    {"from": "ug/dL", "to": "nmol/L", "loinc_code": "2143-6", "factor": 27.59, "note": "Cortisol"}
+  ]
+}
