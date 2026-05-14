@@ -1,0 +1,4 @@
+# CODEOWNERS — medi-vault
+# @halaprix owns the full stack
+
+*       @halaprix

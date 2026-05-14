@@ -1,0 +1,40 @@
+# Environment
+*.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+pgdata/
+chroma_db/
+
+# Models
+model_cache/
+ollama_models/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+.venv/
+venv/
+
+# Node
+node_modules/
+.next/
+out/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
