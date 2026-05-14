@@ -1,0 +1,38 @@
+# Refactoring workflow
+formula = "refactor"
+description = "Plan → Extract → Verify → Cleanup refactoring workflow"
+version = 1
+type = "epic"
+
+[vars.target]
+description = "What is being refactored"
+required = true
+
+[[steps]]
+id = "plan"
+title = "Plan refactor of {{target}}"
+description = "Identify extraction boundaries, new abstractions, and migration path"
+
+[[steps]]
+id = "add-tests"
+title = "Add characterization tests"
+description = "Tests that capture current behavior before changes"
+needs = ["plan"]
+
+[[steps]]
+id = "extract"
+title = "Extract {{target}}"
+description = "Perform the actual refactoring"
+needs = ["add-tests"]
+
+[[steps]]
+id = "verify"
+title = "Verify behavior preserved"
+description = "Run all tests, compare outputs"
+needs = ["extract"]
+
+[[steps]]
+id = "cleanup"
+title = "Cleanup old code"
+description = "Remove deprecated code, update imports"
+needs = ["verify"]

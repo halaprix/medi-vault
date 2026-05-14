@@ -1,0 +1,34 @@
+# Standard feature development workflow
+formula = "feature"
+description = "Design → Implement → Review → Merge workflow for a new feature"
+version = 1
+type = "epic"
+
+[vars.feature_name]
+description = "Name of the feature"
+required = true
+
+[[steps]]
+id = "design"
+title = "Design {{feature_name}}"
+description = "Create design document with architecture, data flow, and API contracts"
+type = "task"
+
+[[steps]]
+id = "implement"
+title = "Implement {{feature_name}}"
+description = "Write the code with tests"
+needs = ["design"]
+
+[[steps]]
+id = "review"
+title = "Code review {{feature_name}}"
+description = "Self-review then cross-review with another agent"
+needs = ["implement"]
+type = "task"
+
+[[steps]]
+id = "merge"
+title = "Merge {{feature_name}} to main"
+description = "Land the plane: lint, test, rebase, push"
+needs = ["review"]
