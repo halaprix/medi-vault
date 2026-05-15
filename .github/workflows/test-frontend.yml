@@ -1,0 +1,31 @@
+name: Test Frontend
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: |
+          cd apps/frontend
+          npm ci
+
+      - name: Run unit tests
+        run: |
+          cd apps/frontend
+          npx vitest run --coverage
+
+      - name: Run E2E smoke tests
+        run: |
+          cd apps/frontend
+          npx playwright install --with-deps chromium
+          npx playwright test --project=chromium

@@ -1,0 +1,27 @@
+name: Lint
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint Dockerfiles
+        uses: hadolint/hadolint-action@v3
+        with:
+          dockerfile: apps/backend/Dockerfile
+
+      - name: Lint Python (ruff)
+        uses: chartboost/ruff-action@v1
+        with:
+          src: ./apps/backend
+
+      - name: Lint Frontend (eslint)
+        run: |
+          cd apps/frontend
+          npm ci
+          npx eslint .

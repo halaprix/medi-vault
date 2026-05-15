@@ -23,6 +23,8 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID, ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, relationship
 
+from app.models.types import EncryptedString
+
 
 class Base(DeclarativeBase):
     pass
@@ -95,8 +97,8 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=text("NOW()"))
     updated_at = Column(DateTime(timezone=True), server_default=text("NOW()"), onupdate=text("NOW()"))
     display_name = Column(String(100), nullable=True)
-    google_oauth_token = Column(Text, nullable=True)
-    google_refresh_token = Column(Text, nullable=True)
+    google_oauth_token = Column(EncryptedString, nullable=True)
+    google_refresh_token = Column(EncryptedString, nullable=True)
     google_token_expiry = Column(DateTime(timezone=True), nullable=True)
     settings_json = Column(JSONB, default={})
 
