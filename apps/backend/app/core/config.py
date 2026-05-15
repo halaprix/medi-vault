@@ -1,4 +1,3 @@
-# TEST_MODE
 """Core configuration — Pydantic Settings loaded from environment/.env."""
 
 import math
