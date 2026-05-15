@@ -1,4 +1,9 @@
 """Core configuration — Pydantic Settings loaded from environment/.env."""
+
+import math
+from typing import Optional
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -28,6 +33,44 @@ class Settings(BaseSettings):
     auto_delete_pdfs: bool = False
     max_upload_size_mb: int = 50
     sync_interval_hours: int = 6
+
+    # Security
+    allowed_hosts: str = "localhost,127.0.0.1,frontend"
+    backend_port: int = 8000
+
+    # Audit logging
+    audit_log_enabled: bool = True
+    audit_log_file: str = "/var/log/medi-vault/audit.log"
+
+    # ── Validators ─────────────────────────────────────
+
+    @field_validator("max_upload_size_mb")
+    @classmethod
+    def validate_max_upload(cls, v: int) -> int:
+        if v < 1 or v > 500:
+            raise ValueError("max_upload_size_mb must be between 1 and 500")
+        return v
+
+    @field_validator("sync_interval_hours")
+    @classmethod
+    def validate_sync_interval(cls, v: int) -> int:
+        if v < 1 or v > 168:
+            raise ValueError("sync_interval_hours must be between 1 and 168 (1 week)")
+        return v
+
+    @field_validator("backend_port")
+    @classmethod
+    def validate_port(cls, v: int) -> int:
+        if v < 1 or v > 65535:
+            raise ValueError("backend_port must be between 1 and 65535")
+        return v
+
+    @field_validator("ollama_base_url", "chromadb_url", "redis_url")
+    @classmethod
+    def validate_urls(cls, v: str) -> str:
+        if v and not (v.startswith("http://") or v.startswith("https://") or v.startswith("redis://")):
+            raise ValueError(f"URL must start with http://, https://, or redis://: {v}")
+        return v
 
     class Config:
         env_file = ".env"

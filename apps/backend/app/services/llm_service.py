@@ -1,12 +1,59 @@
 """LLM Service — parses OCR text into structured biomarker data via Ollama."""
+
 import json
 import re
-from typing import Any
+import time
+from typing import Any, Optional
 
 import httpx
+from pydantic import BaseModel, Field, field_validator
 
 from app.core.config import settings
+from structlog import get_logger
 
+logger = get_logger()
+
+
+# ── Pydantic Validation Schema ────────────────────────
+
+class LabResultItem(BaseModel):
+    raw_name: str = ""
+    value: Optional[float] = None
+    raw_value_string: str = ""
+    unit: Optional[str] = None
+    ref_range_low: Optional[float] = None
+    ref_range_high: Optional[float] = None
+    ref_range_text: Optional[str] = None
+    is_out_of_range: Optional[bool] = None
+    out_of_range_flag: Optional[str] = None
+
+    @field_validator("value", mode="before")
+    @classmethod
+    def coerce_nan_none(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, float) and (v != v):  # NaN check
+            return None
+        return v
+
+
+class LabReportSchema(BaseModel):
+    lab_name: Optional[str] = None
+    report_date: Optional[str] = None
+    patient_info_present: bool = False
+    results: list[LabResultItem] = []
+
+    @field_validator("report_date")
+    @classmethod
+    def validate_date(cls, v):
+        if v and isinstance(v, str):
+            # Accept YYYY-MM-DD format
+            if re.match(r"^\d{4}-\d{2}-\d{2}$", v):
+                return v
+        return None
+
+
+# ── System Prompt ─────────────────────────────────────
 
 SYSTEM_PROMPT = """You are a medical lab report parser. Extract ALL biomarker results from the provided OCR text.
 Return ONLY a valid JSON object. No explanation, no preamble.
@@ -38,11 +85,14 @@ Rules:
 - Date format must be YYYY-MM-DD"""
 
 
+# ── Service ───────────────────────────────────────────
+
 class LLMService:
     """Parses OCR text using Ollama into structured lab report JSON."""
 
     def __init__(self):
         self.base_url = settings.ollama_base_url
+        self.model_name = settings.ollama_model_name
 
     async def parse(self, ocr_text: str, max_retries: int = 3) -> dict[str, Any]:
         prompt = f"{SYSTEM_PROMPT}\n\nOCR Text:\n{ocr_text}"
@@ -50,12 +100,46 @@ class LLMService:
 
         for attempt in range(max_retries):
             try:
+                t0 = time.monotonic()
                 response_text = await self._call_ollama(prompt, attempt > 0)
-                return self._extract_json(response_text)
+                elapsed_ms = (time.monotonic() - t0) * 1000
+
+                raw_result = self._extract_json(response_text)
+
+                # Validate with Pydantic
+                validated = LabReportSchema(**raw_result)
+                result_dict = validated.model_dump()
+
+                # Log metrics
+                results_count = len(result_dict.get("results", []))
+                null_fields = sum(
+                    1 for r in result_dict.get("results", [])
+                    if r.get("value") is None
+                )
+                logger.info(
+                    "llm_parse",
+                    model=self.model_name,
+                    results_extracted=results_count,
+                    null_value_fields=null_fields,
+                    response_time_ms=round(elapsed_ms, 1),
+                    attempt=attempt + 1,
+                )
+
+                return result_dict
+
             except (json.JSONDecodeError, ValueError) as e:
                 last_error = str(e)
+                logger.warning(
+                    "llm_parse_retry",
+                    attempt=attempt + 1,
+                    error=last_error,
+                )
                 if attempt < max_retries - 1:
-                    prompt = f"Your previous response was not valid JSON. Return ONLY the JSON object, nothing else.\n\nError: {last_error}\n\nHere was the text to parse:\n{ocr_text}"
+                    prompt = (
+                        f"Your previous response was not valid JSON. "
+                        f"Return ONLY the JSON object, nothing else.\n\n"
+                        f"Error: {last_error}\n\nHere was the text to parse:\n{ocr_text}"
+                    )
 
         raise ValueError(f"LLM parsing failed after {max_retries} attempts: {last_error}")
 
@@ -69,15 +153,16 @@ class LLMService:
                     resp = await client.post(
                         f"{self.base_url}/api/generate",
                         json={
-                            "model": settings.ollama_model_name,
+                            "model": self.model_name,
                             "prompt": prompt,
                             "stream": False,
                             "options": {"temperature": 0.1},
                         },
                     )
                     resp.raise_for_status()
-                    return resp.json().get("response", "")
-                except httpx.HTTPError:
+                    data = resp.json()
+                    return data.get("response", "")
+                except httpx.HTTPError as e:
                     if retry < 2:
                         import asyncio
                         await asyncio.sleep(backoff)

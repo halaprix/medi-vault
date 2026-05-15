@@ -3,12 +3,13 @@ from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select, desc, func
 from sqlalchemy.dialects.postgresql import insert
 
 from app.core.database import AsyncSession, get_db
 from app.core.deps import get_current_user
+from app.core.validators import validate_finite_float, validate_not_future_date
 from app.models import HealthMetric, MetricSource, MetricType, User
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
@@ -18,6 +19,16 @@ class MetricCreate(BaseModel):
     date: str
     metric_type: str
     value: float
+
+    @field_validator("value")
+    @classmethod
+    def value_must_be_finite(cls, v: float) -> float:
+        return validate_finite_float(v, "value")
+
+    @field_validator("date")
+    @classmethod
+    def date_not_future(cls, v: str) -> str:
+        return validate_not_future_date(v, "date")
 
 
 # ── Routes ───────────────────────────────────────────

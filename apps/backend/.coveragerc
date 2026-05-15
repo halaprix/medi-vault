@@ -1,0 +1,10 @@
+[run]
+source = app
+omit = app/tests/*,app/migrations/*
+
+[report]
+fail_under = 70
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:
+    raise NotImplementedError

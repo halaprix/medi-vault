@@ -5,13 +5,15 @@ import uuid
 from datetime import date
 from typing import Optional
 
+import magic
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select, desc, func
 
 from app.core.config import settings
 from app.core.database import AsyncSession, get_db
 from app.core.deps import get_current_user
+from app.core.validators import validate_not_future_date
 from app.models import Document, ProcessingStatus, User
 
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -42,23 +44,59 @@ class DocumentStatusOut(BaseModel):
     error: Optional[str] = None
 
 
-# ── Routes ───────────────────────────────────────────
+# ── MIME type validation ──────────────────────────────
 
-ALLOWED_MIMES = {"application/pdf", "image/jpeg", "image/png", "image/tiff", "image/webp"}
+ALLOWED_MIMES = {
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/tiff",
+    "image/webp",
+}
+
+EXACT_MIME_MAP = {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".tiff": "image/tiff",
+    ".tif": "image/tiff",
+    ".webp": "image/webp",
+}
 
 
+def validate_mime(file_content: bytes, filename: str) -> str:
+    """Validate file MIME type using python-magic (content-based, not extension)."""
+    # Read up to 8KB for MIME detection
+    sample = file_content[:8192]
+
+    detected = magic.from_buffer(sample, mime=True)
+
+    if detected in ALLOWED_MIMES:
+        return detected
+
+    # Fallback: check extension -> MIME map (some Magic libraries misdetect PDFs)
+    ext = os.path.splitext(filename.lower())[1]
+    mapped = EXACT_MIME_MAP.get(ext)
+    if mapped and mapped in ALLOWED_MIMES:
+        return mapped
+
+    raise HTTPException(
+        status_code=400,
+        detail=f"Invalid file type. Detected: {detected}. Allowed: {', '.join(sorted(ALLOWED_MIMES))}",
+    )
 @router.post("/upload", status_code=status.HTTP_202_ACCEPTED)
 async def upload_document(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if not file.content_type or file.content_type.lower() not in ALLOWED_MIMES:
-        raise HTTPException(status_code=400, detail=f"Invalid file type: {file.content_type}")
-
     content = await file.read()
     if len(content) > settings.max_upload_size_mb * 1024 * 1024:
         raise HTTPException(status_code=400, detail=f"File exceeds {settings.max_upload_size_mb}MB limit")
+
+    # MIME validation via python-magic (content-based, not trust Client-Content-Type)
+    validate_mime(content, file.filename or "unknown")
 
     file_hash = hashlib.sha256(content).hexdigest()
 

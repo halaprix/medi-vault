@@ -3,10 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from structlog import get_logger
 
 from app.api.v1.router import router as v1_router
+from app.core.logging_middleware import StructuredLoggingMiddleware
 
 logger = get_logger()
 
 app = FastAPI(title="medi-vault", version="0.1.0")
+
+app.add_middleware(StructuredLoggingMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
